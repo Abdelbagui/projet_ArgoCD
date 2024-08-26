@@ -1,42 +1,29 @@
-# Utiliser un rôle IAM existant pour le cluster EKS
-data "aws_iam_role" "eks_cluster_role" {
-  name = "eks-cluster-role"
+resource "azurerm_resource_group" "rg" {
+  name     = "myResourceGroup"
+  location = "East US"
 }
 
-resource "aws_eks_cluster" "eks_cluster" {
-  name     = "my-eks-cluster"
-  role_arn  = data.aws_iam_role.eks_cluster_role.arn
+resource "azurerm_kubernetes_cluster" "aks" {
+  name                = "myAKSCluster"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  dns_prefix          = "myaksdns"
 
-  vpc_config {
-    subnet_ids = [aws_subnet.public.id, aws_subnet.private.id]
-  }
-}
-
-# Utiliser un rôle IAM existant pour le groupe de nœuds EKS
-data "aws_iam_role" "eks_node_role" {
-  name = "eks-node-role"
-}
-
-resource "aws_eks_node_group" "eks_node_group" {
-  cluster_name    = aws_eks_cluster.eks_cluster.name
-  node_role_arn   = data.aws_iam_role.eks_node_role.arn
-  subnet_ids      = [aws_subnet.public.id, aws_subnet.private.id]
-
-  scaling_config {
-    desired_size = 2
-    max_size     = 3
-    min_size     = 1
+  default_node_pool {
+    name       = "default"
+    node_count = 2
+    vm_size    = "Standard_DS2_v2"
   }
 
-  instance_types = ["t3.medium"]
-
-  disk_size = 20
-
-  remote_access {
-    ec2_ssh_key = "ssh_key_abdel"  # Remplacez par le nom de votre clé SSH
+  identity {
+    type = "SystemAssigned"
   }
 
   tags = {
-    Name = "eks-node-group"
+    Environment = "Development"
   }
+}
+
+output "kube_config" {
+  value = azurerm_kubernetes_cluster.aks.kube_config_raw
 }
